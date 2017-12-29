@@ -1,0 +1,26 @@
+{
+  "name": "modpublisher",
+  "version": "1.0.0",
+  "description": "Build script for Rimworld mods. Handles versioning, packages and uploads to GitHub and Steam, updates forum topic with version and changelog.",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "keywords": [
+    "Rimworld",
+    "publisher"
+  ],
+  "author": "UnlimitedHugs",
+  "license": "MIT",
+  "dependencies": {
+    "archiver": "^2.1.0",
+    "bluebird": "^3.5.1",
+    "colors": "^1.1.2",
+    "commander": "^2.11.0",
+    "github": "^13.0.1",
+    "lodash": "^4.17.4",
+    "readline-sync": "^1.4.7",
+    "vdf": "0.0.2"
+  },
+  "devDependencies": {}
+}
