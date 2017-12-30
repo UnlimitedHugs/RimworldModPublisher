@@ -66,7 +66,7 @@ function makeRunner() {
 		},
 		run() {
 			running = true;
-			failed = false;
+			runFailed = false;
 			failReason = null;
 
 			runTaskList(setup, "setup")

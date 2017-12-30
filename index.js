@@ -3,22 +3,24 @@ var child_process = require('child_process');
 var process = require('process');
 var util = require('util');
 var path = require('path');
-var readline = require('readline-sync');
 
 var _ = require("lodash");
 var cmd = require("commander");
 var runner = require("./task_runner")();
 var colors = require("colors/safe");
-var GitHubApi = require('github')
+var GitHubApi = require('github');
 var Promise = require('bluebird');
 var archiver = require('archiver');
 var vdf = require('vdf');
+var readline = require('readline-sync');
+var xmlEscape = require('xml-escape');
 
 var steamCMDPath = "C:/SteamCmd/steamcmd.exe";
 var MSBuildPath = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/MSBuild.exe";
 var MSBuildOptions = "/p:Configuration=Release /p:BuildProjectReferences=false /p:PreBuildEvent= /p:PostBuildEvent=";
 var assemblyInfoPath = "./Properties/AssemblyInfo.cs";
 var githubTokenPath = "../githubToken.txt";
+var nugetTokenPath = "../nugetToken.txt";
 
 
 function fatalError(message){
@@ -69,7 +71,7 @@ function readAssemblyVersion(){
 		if(versionStr === null) throw new Error("Invalid AssemblyInfo.cs contents!");
 		overrideVersionActive = false;
 	}
-	versionParts = versionStr.split('.');
+	var versionParts = versionStr.split('.');
 	versionParts.length = 3;
 	return versionParts.join('.');
 }
@@ -83,33 +85,47 @@ function quote(str){
 	return '"'+str+'"';
 }
 
-function readAPIToken(path){
+function readTokenFile(path){
 	try {
 		var contents = fs.readFileSync(path).toString();
 	} catch(err) {
 		console.log(("Failed to read token file at "+path).stylize('red'))
+		throw err;
 	}
 	return contents.trim();
+}
+
+function findFileByExtension(dirPath, extension) {
+	var files = fs.readdirSync(dirPath);
+	for (var i = 0; i < files.length; i++) {
+		var filename = path.join(dirPath, files[i]);
+		var stat = fs.lstatSync(filename);
+		if (filename.endsWith(extension)) {
+			return filename;
+		}
+	}
 }
 
 //////////////////////////////////////////// SETUP ////////////////////////////////////////////
 var workingDirectory = process.cwd().replace(/\\/g, '/');
 var modName = modNameFromWorkingDirectory();
-var modDirPath = workingDirectory + "/Mods/" + modName
+var modDirPath = workingDirectory + "/Mods/" + modName;
 var versionFilePath = modDirPath + "/About/Version.xml";
 var steamFileIdFilePath = modDirPath + "/About/PublishedFileId.txt";
 var steamVDFFilePath = workingDirectory + "/SteamConfig.vdf";
 var aboutFilePath = modDirPath + "/About/About.xml";
 var steamPreviewPath = modDirPath + "/About/preview.png";
 var steamConfigPath = workingDirectory + "/SteamConfig.json";
-var apiToken = readAPIToken(githubTokenPath);
+var nugetNuspecPath = workingDirectory + "/" + modName + ".nuspec";
+var githubToken = readTokenFile(githubTokenPath);
 var currentVersion = null;
 var assemblyVersionPattern = /\[assembly: AssemblyVersion\("((?:\d|\.)+?)"\)\]/;
 var assemblyFileVersionPattern = /\[assembly: AssemblyFileVersion\("((?:\d|\.)+?)"\)\]/;
 var overrideVersionPattern = /overrideVersion>([\d\.]+)/;
 var githubRepoPattern = /gitHubRepository>([\w\/]+)/;
 var aboutVersionPattern = /Version: ([\d\.]+)/;
-var aboutNamePattern = /name>([^<]+)/;
+var nuspecVersionPattern = /version>([\d\.]+)/;
+var nuspecChangelogPattern = /releaseNotes>([^<]+)/;
 var githubRepoData = {};
 var github = null;
 
@@ -120,6 +136,7 @@ var revisionTypes = {"major":0, "minor":1, "patch":2};
 cmd.option('-v, --incrementVersion ['+_.join(_.keys(revisionTypes), '|')+']', 'Increment the version number of the mod and rebuild the project. Defaults to "patch".', coerceVersionArg);
 cmd.option('-g, --github', 'Publishes a release of the mod on GitHub');
 cmd.option('-s, --steam', 'Publishes an update of the mod on the Steam workshop. Workshop item must already exist.');
+cmd.option('-n, --nuget', 'Updates and pushes an updated nupkg to nuget.org');
 cmd.option('--preRelease', 'Marks the release as "pre-release" on github');
 cmd.parse(process.argv);
 if(cmd.incrementVersion === true){
@@ -135,7 +152,7 @@ github = new GitHubApi({
 });
 github.authenticate({
 	type: 'token',
-	token: apiToken
+	token: githubToken
 });
 
 //////////////////////////////////////////// TASKS ////////////////////////////////////////////
@@ -209,9 +226,8 @@ function BuildAssembly(){
 		runner.fail("Failed to find MSBuild at "+MSBuildPath);
 		return;
 	}
-	var stdout;
 	try {
-		stdout = child_process.execSync(quote(MSBuildPath) + " " + MSBuildOptions, [quote(process.cwd())]);
+		child_process.execSync(quote(MSBuildPath) + " " + MSBuildOptions, [quote(process.cwd())]);
 	} catch(err){
 		runner.fail(err.stdout.toString());
 	}
@@ -262,7 +278,7 @@ function CreateReleasePackage(){
 }
 
 function CleanupPackagedRelease(){
-	if(typeof packagePath !== undefined){
+	if(packagePath){
 		fs.unlinkSync(packagePath);
 	}
 }
@@ -271,7 +287,7 @@ var commitMessage;
 
 function FetchCommitMessage(){
 	var stdout = child_process.execSync("git log -1 --pretty=%B");
-	commitMessage = stdout.toString();
+	commitMessage = stdout.toString().trim();
 }
 
 function GetGitHubRepoPath(){
@@ -297,7 +313,7 @@ function MakeGithubRelease(){
 	var payload = _.extend(githubRepoData, {
 		tag_name: 'v'+currentVersion,
 		target_commitish: commitish,
-		name: commitLines[0],
+		name: commitHeadline,
 		body: otherLines,
 		draft: false,
 		prerelease: !!cmd.preRelease
@@ -323,7 +339,7 @@ function UploadReleasePackage(){
 		contentType: "application/zip",
 		contentLength: fileSize,
 		name: packageFilename,
-		label: packageFilename + " <-- Download this"
+		label: "Download this: " + packageFilename
 	};
 	return Promise.promisify(github.repos.uploadAsset)(payload)
 		.then(result => console.log("Uploaded package: " + result.data.browser_download_url))
@@ -366,7 +382,7 @@ function CreateVDFFile(){
 			"visibility": steamConfig.visibility.toString(),
 			"title": steamConfig.title,
 			"description": steamConfig.description,
-			"changenote": commitMessage.trim(),
+			"changenote": commitMessage,
 			"publishedfileid": steamFileId
 		}
 	};
@@ -388,12 +404,42 @@ function CleanupVDFFile(){
 	} catch(err){}
 }
 
+function UpdateNuspecFile(){
+	if(!fs.existsSync(nugetNuspecPath)){
+		runner.fail("nuspec file not found at "+nugetNuspecPath);
+		return;
+	}
+	replaceMatchedCaptureInFile(nugetNuspecPath, nuspecVersionPattern, currentVersion);
+	replaceMatchedCaptureInFile(nugetNuspecPath, nuspecChangelogPattern, xmlEscape(commitMessage));
+}
+
+var nupkgFilePath = null;
+
+function BuildNupkgFile(){
+	child_process.execSync("nuget pack", {stdio: [0, 1, 2]});
+	nupkgFilePath = findFileByExtension(workingDirectory, ".nupkg");
+	if(!nupkgFilePath){
+		runner.fail(".nupkg file not found after build");
+	}
+}
+
+function CleanupNupkgFile(){
+	try {
+		fs.unlink(nupkgFilePath);
+	} catch(err){}
+}
+
+function PushNugetPackage(){
+	var apiKey = readTokenFile(nugetTokenPath);
+	child_process.execSync("push -Source nuget.org -ApiKey "+apiKey+" "+nupkgFilePath, {stdio: [0, 1, 2]});
+}
+
 //////////////////////////////////////////// EXECUTION ////////////////////////////////////////////
 
 currentVersion = readAssemblyVersion();
 runner.addTask(EnsureIsModDirectory);
-runner.addTask(EnsureEverythingCommitted);
-runner.addTask(EnsureGitRemoteIsUpToDate);
+//runner.addTask(EnsureEverythingCommitted);
+//runner.addTask(EnsureGitRemoteIsUpToDate);
 
 if(cmd.incrementVersion){
 	runner.addTask(IncrementVersion);
@@ -414,19 +460,11 @@ if(cmd.steam){
 	runner.addTask(CreateVDFFile, [ReadSteamFileId, ReadSteamConfigFile, CheckSteamPreviewExists], [CleanupVDFFile])
 	runner.addTask(PublishSteamUpdate);
 }
-
-/*
-runner.addTask(function Test1(){
-	return 'honk1';
-}, [function LEL(){return Promise.reject()}], [function LEL2(){return Promise.delay(1000)}]);
-runner.addTask(function Test2(){
-	return new Promise((success, failure) => {
-		_.delay(success, 1000);
-	});
-});
-runner.addTask(function Test3(){
-	return 'honk3';
-});
-*/
+if(cmd.nuget){
+	runner.addTask(FetchCommitMessage);
+	runner.addTask(UpdateNuspecFile);
+	runner.addTask(BuildNupkgFile, null, [CleanupNupkgFile]);
+	runner.addTask(PushNugetPackage);
+}
 
 runner.run();

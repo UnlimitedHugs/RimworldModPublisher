@@ -20,7 +20,8 @@
     "github": "^13.0.1",
     "lodash": "^4.17.4",
     "readline-sync": "^1.4.7",
-    "vdf": "0.0.2"
+    "vdf": "0.0.2",
+    "xml-escape": "^1.1.0"
   },
   "devDependencies": {}
 }
