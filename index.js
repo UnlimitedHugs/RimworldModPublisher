@@ -89,7 +89,7 @@ function readTokenFile(path){
 	try {
 		var contents = fs.readFileSync(path).toString();
 	} catch(err) {
-		console.log(("Failed to read token file at "+path).stylize('red'))
+		console.log(("Failed to read token file at "+path).stylize('red'));
 		throw err;
 	}
 	return contents.trim();
@@ -99,7 +99,6 @@ function findFileByExtension(dirPath, extension) {
 	var files = fs.readdirSync(dirPath);
 	for (var i = 0; i < files.length; i++) {
 		var filename = path.join(dirPath, files[i]);
-		var stat = fs.lstatSync(filename);
 		if (filename.endsWith(extension)) {
 			return filename;
 		}
@@ -136,7 +135,8 @@ var revisionTypes = {"major":0, "minor":1, "patch":2};
 cmd.option('-v, --incrementVersion ['+_.join(_.keys(revisionTypes), '|')+']', 'Increment the version number of the mod and rebuild the project. Defaults to "patch".', coerceVersionArg);
 cmd.option('-g, --github', 'Publishes a release of the mod on GitHub');
 cmd.option('-s, --steam', 'Publishes an update of the mod on the Steam workshop. Workshop item must already exist.');
-cmd.option('-n, --nuget', 'Updates and pushes an updated nupkg to nuget.org');
+cmd.option('-n, --nuget', 'Pushes an updated nupkg to nuget.org');
+cmd.option('-x, --skipPreChecks', 'Skips initial checks that ensure the git repo is committed and up to date with its remote.');
 cmd.option('--preRelease', 'Marks the release as "pre-release" on github');
 cmd.parse(process.argv);
 if(cmd.incrementVersion === true){
@@ -339,7 +339,7 @@ function UploadReleasePackage(){
 		contentType: "application/zip",
 		contentLength: fileSize,
 		name: packageFilename,
-		label: "Download this: " + packageFilename
+		label: "Download: " + packageFilename
 	};
 	return Promise.promisify(github.repos.uploadAsset)(payload)
 		.then(result => console.log("Uploaded package: " + result.data.browser_download_url))
@@ -374,6 +374,7 @@ function ReadSteamFileId(){
 }
 
 function CreateVDFFile(){
+	var date = new Date();
 	var vdf_data = {
 		"workshopitem": {
 			"appid": 294100,
@@ -382,7 +383,7 @@ function CreateVDFFile(){
 			"visibility": steamConfig.visibility.toString(),
 			"title": steamConfig.title,
 			"description": steamConfig.description,
-			"changenote": commitMessage,
+			"changenote": "Update on "+date.toDateString()+", "+date.getHours()+":"+date.getMinutes()+"\n\n"+commitMessage,
 			"publishedfileid": steamFileId
 		}
 	};
@@ -431,15 +432,17 @@ function CleanupNupkgFile(){
 
 function PushNugetPackage(){
 	var apiKey = readTokenFile(nugetTokenPath);
-	child_process.execSync("push -Source nuget.org -ApiKey "+apiKey+" "+nupkgFilePath, {stdio: [0, 1, 2]});
+	child_process.execSync("nuget push -Source nuget.org -ApiKey "+apiKey+" "+quote(nupkgFilePath), {stdio: [0, 1, 2]});
 }
 
 //////////////////////////////////////////// EXECUTION ////////////////////////////////////////////
 
 currentVersion = readAssemblyVersion();
-runner.addTask(EnsureIsModDirectory);
-//runner.addTask(EnsureEverythingCommitted);
-//runner.addTask(EnsureGitRemoteIsUpToDate);
+if(!cmd.skipPreChecks) {
+	runner.addTask(EnsureIsModDirectory);
+	runner.addTask(EnsureEverythingCommitted);
+	runner.addTask(EnsureGitRemoteIsUpToDate);
+}
 
 if(cmd.incrementVersion){
 	runner.addTask(IncrementVersion);
@@ -448,20 +451,22 @@ if(cmd.incrementVersion){
 	runner.addTask(UpdateAssemblyInfo);
 	runner.addTask(BuildAssembly);
 }
+
+if(cmd.github || cmd.steam || cmd.nuget){
+	runner.addTask(FetchCommitMessage);
+}
+
 if(cmd.github) {
 	runner.addTask(GetGitHubRepoPath);
 	runner.addTask(CreateReleasePackage, null, [CleanupPackagedRelease]);
-	runner.addTask(FetchCommitMessage);
 	runner.addTask(MakeGithubRelease);
 	runner.addTask(UploadReleasePackage);
 }
 if(cmd.steam){
-	runner.addTask(FetchCommitMessage);
 	runner.addTask(CreateVDFFile, [ReadSteamFileId, ReadSteamConfigFile, CheckSteamPreviewExists], [CleanupVDFFile])
 	runner.addTask(PublishSteamUpdate);
 }
 if(cmd.nuget){
-	runner.addTask(FetchCommitMessage);
 	runner.addTask(UpdateNuspecFile);
 	runner.addTask(BuildNupkgFile, null, [CleanupNupkgFile]);
 	runner.addTask(PushNugetPackage);
