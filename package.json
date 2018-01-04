@@ -23,5 +23,6 @@
     "vdf": "0.0.2",
     "xml-escape": "^1.1.0"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "bin" : { "publish" : "./index.js" }
 }
