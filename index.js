@@ -15,8 +15,8 @@ var vdf = require('vdf');
 var readline = require('readline-sync');
 var xmlEscape = require('xml-escape');
 
-var steamCMDPath = "C:/SteamCmd/steamcmd.exe";
-var MSBuildPath = "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/MSBuild.exe";
+var steamCMDPath = "steamcmd.exe";
+var MSBuildPath = "MSBuild.exe";
 var MSBuildOptions = "/p:Configuration=Release /p:BuildProjectReferences=false /p:PreBuildEvent= /p:PostBuildEvent=";
 var assemblyInfoPath = "./Properties/AssemblyInfo.cs";
 var githubTokenPath = "../githubToken.txt";
@@ -221,10 +221,6 @@ function UpdateAssemblyInfo(){
 function BuildAssembly(){
 	if(overrideVersionActive) {
 		return "Assembly info was not updated, skipping.";
-	}
-	if(!fs.existsSync(MSBuildPath)){
-		runner.fail("Failed to find MSBuild at "+MSBuildPath);
-		return;
 	}
 	try {
 		child_process.execSync(quote(MSBuildPath) + " " + MSBuildOptions, [quote(process.cwd())]);
