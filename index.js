@@ -430,6 +430,11 @@ function CleanupNupkgFile(){
 	} catch(err){}
 }
 
+// the updated nuspec is not worth committing, roll back changes
+function RollbackNuspecFile(){
+	child_process.execSync("git checkout -- "+quote(nugetNuspecPath));
+}
+
 function PushNugetPackage(){
 	var apiKey = readTokenFile(nugetTokenPath);
 	child_process.execSync("nuget push -Source nuget.org -ApiKey "+apiKey+" "+quote(nupkgFilePath), {stdio: [0, 1, 2]});
@@ -468,7 +473,7 @@ if(cmd.steam){
 	runner.addTask(PublishSteamUpdate);
 }
 if(cmd.nuget){
-	runner.addTask(UpdateNuspecFile);
+	runner.addTask(UpdateNuspecFile, null, [RollbackNuspecFile]);
 	runner.addTask(BuildNupkgFile, null, [CleanupNupkgFile]);
 	runner.addTask(PushNugetPackage);
 }
