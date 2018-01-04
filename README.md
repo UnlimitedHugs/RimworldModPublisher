@@ -16,9 +16,9 @@ The script requires the following files to be in place:
 * ./Properties/AssemblyInfo.cs for version bumping
 * ../githubToken.txt for GitHub release publishing
 * ../nugetToken.txt for NuGet update publishing
-* ./Mods/<modName>/About/About.xml for version bumping
-* ./Mods/<modName>/About/Version.xml for version bumping in override mode and GitHub release publishing
-* ./Mods/<modName>/About/PublishedFileId.txt for Steam update publishing
+* ./Mods/$modName/About/About.xml for version bumping
+* ./Mods/$modName/About/Version.xml for version bumping in override mode and GitHub release publishing
+* ./Mods/$modName/About/PublishedFileId.txt for Steam update publishing
 
 ```
 publish [options]
