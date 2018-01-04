@@ -137,7 +137,7 @@ cmd.option('-g, --github', 'publishes a release of the mod on GitHub');
 cmd.option('-s, --steam', 'publishes an update of the mod on the Steam workshop. Workshop item must already exist.');
 cmd.option('-n, --nuget', 'pushes an updated nupkg to nuget.org');
 cmd.option('-x, --skipPreChecks', 'skips initial checks that ensure the git repo is committed and up to date with its remote');
-cmd.option('--preRelease', 'marks the release as "pre-release" on github');
+cmd.option('--preRelease', 'marks the release as "pre-release" on GitHub');
 cmd.parse(process.argv);
 if(cmd.incrementVersion === true){
 	cmd.incrementVersion = 'patch';
