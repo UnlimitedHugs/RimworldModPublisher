@@ -133,11 +133,11 @@ var overrideVersionActive = false;
 var revisionTypes = {"major":0, "minor":1, "patch":2};
 
 cmd.option('-v, --incrementVersion ['+_.join(_.keys(revisionTypes), '|')+']', 'Increment the version number of the mod and rebuild the project. Defaults to "patch".', coerceVersionArg);
-cmd.option('-g, --github', 'Publishes a release of the mod on GitHub');
-cmd.option('-s, --steam', 'Publishes an update of the mod on the Steam workshop. Workshop item must already exist.');
-cmd.option('-n, --nuget', 'Pushes an updated nupkg to nuget.org');
-cmd.option('-x, --skipPreChecks', 'Skips initial checks that ensure the git repo is committed and up to date with its remote.');
-cmd.option('--preRelease', 'Marks the release as "pre-release" on github');
+cmd.option('-g, --github', 'publishes a release of the mod on GitHub');
+cmd.option('-s, --steam', 'publishes an update of the mod on the Steam workshop. Workshop item must already exist.');
+cmd.option('-n, --nuget', 'pushes an updated nupkg to nuget.org');
+cmd.option('-x, --skipPreChecks', 'skips initial checks that ensure the git repo is committed and up to date with its remote');
+cmd.option('--preRelease', 'marks the release as "pre-release" on github');
 cmd.parse(process.argv);
 if(cmd.incrementVersion === true){
 	cmd.incrementVersion = 'patch';
@@ -436,9 +436,10 @@ function PushNugetPackage(){
 }
 
 //////////////////////////////////////////// EXECUTION ////////////////////////////////////////////
+var argCount = process.argv.slice(2).length;
 
 currentVersion = readAssemblyVersion();
-if(!cmd.skipPreChecks) {
+if(!cmd.skipPreChecks && argCount) {
 	runner.addTask(EnsureIsModDirectory);
 	runner.addTask(EnsureEverythingCommitted);
 	runner.addTask(EnsureGitRemoteIsUpToDate);
@@ -473,3 +474,7 @@ if(cmd.nuget){
 }
 
 runner.run();
+
+if (!argCount) {
+	cmd.outputHelp();
+}
