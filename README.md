@@ -11,6 +11,7 @@ A build script to perform automated version bumping and publishing of mod update
 
 ## Usage
 The script requires the following files to be in place:
+* Working directory name must match $modName
 * Working directory must be a git repo
 * MSBuild and SteamCmd must be installed and accessible via PATH.
 * ./Properties/AssemblyInfo.cs for version bumping
