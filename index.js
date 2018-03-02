@@ -397,7 +397,7 @@ function PublishSteamUpdate(){
 
 function CleanupVDFFile(){
 	try {
-		fs.unlink(steamVDFFilePath);
+		fs.unlinkSync(steamVDFFilePath);
 	} catch(err){}
 }
 
@@ -442,8 +442,10 @@ var argCount = process.argv.slice(2).length;
 currentVersion = readAssemblyVersion();
 if(!cmd.skipPreChecks && argCount) {
 	runner.addTask(EnsureIsModDirectory);
-	runner.addTask(EnsureEverythingCommitted);
-	runner.addTask(EnsureGitRemoteIsUpToDate);
+	if(!cmd.incrementVersion){
+		runner.addTask(EnsureEverythingCommitted);
+		runner.addTask(EnsureGitRemoteIsUpToDate);
+	}
 }
 
 if(cmd.incrementVersion){
