@@ -422,7 +422,7 @@ function BuildNupkgFile(){
 
 function CleanupNupkgFile(){
 	try {
-		fs.unlink(nupkgFilePath);
+		fs.unlinkSync(nupkgFilePath);
 	} catch(err){}
 }
 
