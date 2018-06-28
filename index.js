@@ -48,14 +48,16 @@ function matchFileContents(path, pattern){
 }
 
 function replaceMatchedCaptureInFile(path, pattern, replacement){
-	var contents = fs.readFileSync(path).toString();
-	var replacer = function(match, capture){
-		return match.replace(capture, replacement);
-	};
-	var newContents = contents.replace(pattern, replacer);
-	if(newContents != contents){
-		fs.writeFileSync(path, newContents);
-		return true;
+	if(fs.existsSync(path)){
+		var contents = fs.readFileSync(path).toString();
+		var replacer = function(match, capture){
+			return match.replace(capture, replacement);
+		};
+		var newContents = contents.replace(pattern, replacer);
+		if(newContents != contents){
+			fs.writeFileSync(path, newContents);
+			return true;
+		}
 	}
 	return false;
 }
@@ -113,6 +115,7 @@ var versionFilePath = modDirPath + "/About/Version.xml";
 var steamFileIdFilePath = modDirPath + "/About/PublishedFileId.txt";
 var steamVDFFilePath = workingDirectory + "/SteamConfig.vdf";
 var aboutFilePath = modDirPath + "/About/About.xml";
+var modSyncFilePath = modDirPath + "/About/ModSync.xml";
 var steamPreviewPath = modDirPath + "/About/preview.png";
 var steamConfigPath = workingDirectory + "/SteamConfig.json";
 var nugetNuspecPath = workingDirectory + "/" + modName + ".nuspec";
@@ -124,6 +127,7 @@ var overrideVersionPattern = /overrideVersion>([\d\.]+)/;
 var githubRepoPattern = /gitHubRepository>([\w\/]+)/;
 var aboutVersionPattern = /Version: ([\d\.]+)/;
 var nuspecVersionPattern = /version>([\d\.]+)/;
+var modSyncVersionPattern = /Version>([\d\.]+)/;
 var nuspecChangelogPattern = /releaseNotes>([^<]+)/;
 var githubRepoData = {};
 var github = null;
@@ -232,6 +236,11 @@ function BuildAssembly(){
 function UpdateAboutXmlVersion(){
 	var replaced = replaceMatchedCaptureInFile(aboutFilePath, aboutVersionPattern, currentVersion);
 	if(!replaced) return colors.yellow("About.xml version information not found, skipping.");
+}
+
+function UpdateModSyncVersion(){
+	var replaced = replaceMatchedCaptureInFile(modSyncFilePath, modSyncVersionPattern, currentVersion);
+	if(!replaced) return colors.yellow("ModSync.xml version information not found, skipping.");
 }
 
 var packageFilename;
@@ -452,6 +461,7 @@ if(cmd.incrementVersion){
 	runner.addTask(IncrementVersion);
 	runner.addTask(UpdateOverrideVersion);
 	runner.addTask(UpdateAboutXmlVersion);
+	runner.addTask(UpdateModSyncVersion);
 	runner.addTask(UpdateAssemblyInfo);
 	runner.addTask(BuildAssembly);
 }
