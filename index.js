@@ -65,13 +65,17 @@ function replaceMatchedCaptureInFile(path, pattern, replacement){
 function readAssemblyVersion(){
 	var versionStr;
 	var overrideVersion = matchFileContents(versionFilePath, overrideVersionPattern); // try to get override version first
+	var assemblyFileVersion = matchFileContents(assemblyInfoPath, assemblyFileVersionPattern); // try to get assembly file version as fallback
 	if(overrideVersion !== null){
 		versionStr = overrideVersion;
-		overrideVersionActive = true;
+		usingOverrideVersion = true;
+	} else if(assemblyFileVersion !== null) {
+		versionStr = assemblyFileVersion;
+		usingOverrideVersion = false;
 	} else {
 		versionStr = matchFileContents(assemblyInfoPath, assemblyVersionPattern); // use assembly version otherwise
 		if(versionStr === null) throw new Error("Invalid AssemblyInfo.cs contents!");
-		overrideVersionActive = false;
+		usingOverrideVersion = false;
 	}
 	var versionParts = versionStr.split('.');
 	versionParts.length = 3;
@@ -132,11 +136,13 @@ var nuspecChangelogPattern = /releaseNotes>([^<]+)/;
 var githubRepoData = {};
 var github = null;
 
-var overrideVersionActive = false;
+var usingOverrideVersion = false;
 
 var revisionTypes = {"major":0, "minor":1, "patch":2};
 
 cmd.option('-v, --incrementVersion ['+_.join(_.keys(revisionTypes), '|')+']', 'Increment the version number of the mod and rebuild the project. Defaults to "patch".', coerceVersionArg);
+cmd.option('-a, --assemblyVersion', 'used with -v, updates the AssemblyVersion, as well as the AssemblyFileVersion');
+cmd.option('-o, --overrideVersionOnly', 'used with -v, skips updating the AssemblyVersion and AssemblyFileVersion if overrideVersion is used in Version.xml');
 cmd.option('-g, --github', 'publishes a release of the mod on GitHub');
 cmd.option('-s, --steam', 'publishes an update of the mod on the Steam workshop. Workshop item must already exist.');
 cmd.option('-n, --nuget', 'pushes an updated nupkg to nuget.org');
@@ -208,24 +214,29 @@ function IncrementVersion(){
 }
 
 function UpdateOverrideVersion(){
-	if(!overrideVersionActive) {
+	if(!usingOverrideVersion) {
 		return "Override version inactive, skipping.";
 	}
 	replaceMatchedCaptureInFile(versionFilePath, overrideVersionPattern, currentVersion);
 }
 
-function UpdateAssemblyInfo(){
-	if(overrideVersionActive) {
-		return "Override version active, skipping.";
-	}
+var assemblyVersionUpdated = false;
+function UpdateAssemblyVersion(){
+	if(usingOverrideVersion && cmd.overrideVersionOnly) return "Override version active, skipping.";
+	if(!cmd.assemblyVersion) return "-a flag not used, skipping.";
 	replaceMatchedCaptureInFile(assemblyInfoPath, assemblyVersionPattern, currentVersion);
+	assemblyVersionUpdated = true;
+}
+
+var assemblyFileVersionUpdated = false;
+function UpdateAssemblyFileVersion(){
+	if(usingOverrideVersion && cmd.overrideVersionOnly) return "Override version active, skipping.";
 	replaceMatchedCaptureInFile(assemblyInfoPath, assemblyFileVersionPattern, currentVersion);
+	assemblyFileVersionUpdated = true;
 }
 
 function BuildAssembly(){
-	if(overrideVersionActive) {
-		return "Assembly info was not updated, skipping.";
-	}
+	if(!assemblyVersionUpdated && !assemblyFileVersionUpdated) return "Assembly info was not updated, skipping.";
 	try {
 		child_process.execSync(quote(MSBuildPath) + " " + MSBuildOptions, [quote(process.cwd())]);
 	} catch(err){
@@ -462,7 +473,8 @@ if(cmd.incrementVersion){
 	runner.addTask(UpdateOverrideVersion);
 	runner.addTask(UpdateAboutXmlVersion);
 	runner.addTask(UpdateModSyncVersion);
-	runner.addTask(UpdateAssemblyInfo);
+	runner.addTask(UpdateAssemblyVersion);
+	runner.addTask(UpdateAssemblyFileVersion);
 	runner.addTask(BuildAssembly);
 }
 
