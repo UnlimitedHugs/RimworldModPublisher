@@ -24,10 +24,13 @@ The script requires the following files to be in place:
 ```
 publish [options]
 
-Options:
+ Options:
+
 -v, --incrementVersion [major|minor|patch]  Increment the version number of the mod and rebuild the project. Defaults to "patch".
+-a, --assemblyVersion                       used with -v, updates the AssemblyVersion, as well as the AssemblyFileVersion
+-o, --overrideVersionOnly                   used with -v, skips updating the AssemblyVersion and AssemblyFileVersion if overrideVersion is used in Version.xml
 -g, --github                                publishes a release of the mod on GitHub
--s, --steam                                 publishes an update of the mod on the Steam workshop. Workshop item must already exist.
+-s, --steam                                 publishes an update of the mod on the Steam workshop. orkshop item must already exist.
 -n, --nuget                                 pushes an updated nupkg to nuget.org
 -x, --skipPreChecks                         skips initial checks that ensure the git repo is committed and up to date with its remote
 --preRelease                                marks the release as "pre-release" on GitHub
