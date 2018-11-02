@@ -403,7 +403,7 @@ function ReadSteamFileId() {
 		steamFileId = fs.readFileSync(steamFileIdFilePath, {
 			encoding: "ascii"
 		});
-		if (parseInt(steamFileId, 10) !== steamFileId) throw new Error("Invalid id: " + steamFileId);
+		if (parseInt(steamFileId, 10).toString(10) !== steamFileId) throw new Error("Invalid id: " + steamFileId);
 	} catch (err) {
 		runner.fail("Could not read steam app id at " + steamFileIdFilePath + ": " + err);
 	}
