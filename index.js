@@ -412,6 +412,7 @@ function ReadSteamFileId() {
 function CreateVDFFile() {
 	//spell-checker: disable
 	var date = new Date();
+	var changeNote = commitMessage.replace(/"/g, "'"); // convert double quotes to single quotes
 	var vdf_data = {
 		"workshopitem": {
 			"appid": 294100,
@@ -420,7 +421,7 @@ function CreateVDFFile() {
 			"visibility": steamConfig.visibility.toString(),
 			"title": steamConfig.title,
 			"description": steamConfig.description,
-			"changenote": "Update on " + date.toDateString() + ", " + date.getHours() + ":" + date.getMinutes() + "\n\n" + commitMessage,
+			"changenote": "Update on " + date.toDateString() + ", " + date.getHours() + ":" + date.getMinutes() + "\n\n" + changeNote,
 			"publishedfileid": steamFileId
 		}
 	};
