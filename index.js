@@ -3,6 +3,7 @@ var child_process = require("child_process");
 var process = require("process");
 var util = require("util");
 var path = require("path");
+var yaml = require("yaml");
 
 var _ = require("lodash");
 var cmd = require("commander");
@@ -121,7 +122,7 @@ var steamVDFFilePath = workingDirectory + "/SteamConfig.vdf";
 var aboutFilePath = modDirPath + "/About/About.xml";
 var modSyncFilePath = modDirPath + "/About/ModSync.xml";
 var steamPreviewPath = modDirPath + "/About/preview.png";
-var steamConfigPath = workingDirectory + "/SteamConfig.json";
+var steamConfigPath = workingDirectory + "/SteamConfig";
 var nugetNuspecPath = workingDirectory + "/" + modName + ".nuspec";
 var githubToken = readTokenFile(githubTokenPath);
 var currentVersion = null;
@@ -387,10 +388,27 @@ var steamConfig = null;
 
 function ReadSteamConfigFile() {
 	try {
-		steamConfig = JSON.parse(fs.readFileSync(steamConfigPath, {
-			encoding: "utf8"
-		}));
-		if (!steamConfig.title || !steamConfig.description || !_.isNumber(steamConfig.visibility)) throw new Error("Required fields: title, description, visibility");
+		let possibleFormats = [
+			{extension:"yaml", parser:yaml.parse},
+			{extension:"json", parser:JSON.parse}
+		];
+		let fileFound = false;
+		for(let {extension, parser} of possibleFormats){
+			let filePath = steamConfigPath + "." + extension;
+			try {
+				if(fs.existsSync(filePath)){
+					fileFound = true;
+					steamConfig = parser(fs.readFileSync(filePath, {encoding: "utf8"}));
+					if (!steamConfig.title || !steamConfig.description || !_.isNumber(steamConfig.visibility)) {
+						throw new Error("Required fields: title, description, visibility");
+					}
+					break;
+				}
+			} catch(err) {
+				throw new Error(`${extension} format: ${err}`);
+			}
+		}
+		if(!fileFound) throw new Error("file not found");
 	} catch (err) {
 		runner.fail("Failed to read steam config file at " + steamConfigPath + ": " + err);
 	}
