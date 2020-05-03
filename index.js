@@ -112,6 +112,14 @@ function findFileByExtension(dirPath, extension) {
 	}
 }
 
+function confirmOrFail(query){
+	if (!readline.keyInYN(query)) {
+		runner.fail("User aborted release");
+		return false;
+	}
+	return true;
+}
+
 //////////////////////////////////////////// SETUP ////////////////////////////////////////////
 var workingDirectory = process.cwd().replace(/\\/g, "/");
 var modName = modNameFromWorkingDirectory();
@@ -355,8 +363,7 @@ function MakeGithubRelease() {
 	//spell-checker: enable
 	var readable = util.inspect(payload).replace(/\\n/g, "\n");
 	console.log(readable);
-	if (!readline.keyInYN("Create a release with these settings? (y/n): ")) {
-		runner.fail("User aborted release");
+	if(!confirmOrFail("Create a release with these settings?")){
 		return;
 	}
 	return Promise.promisify(github.repos.createRelease)(payload).then(result => {
@@ -480,13 +487,33 @@ function UpdateNuspecFile() {
 var nupkgFilePath = null;
 
 function BuildNupkgFile() {
-	child_process.execSync("nuget pack", {
-		stdio: [0, 1, 2]
+	var warningsInOutput = false;
+	return new Promise((resolve, reject) => {
+		var child = child_process.spawn("nuget", ["pack"], {
+			stdio:["inherit", "pipe", "pipe"]
+		});
+		child.stdout.on("data", data => {
+			var dataString = data.toString();
+			if(dataString.includes("WARNING")){
+				process.stdout.write(colors.yellow(dataString));
+				warningsInOutput = true;
+			} else {
+				process.stdout.write(data);
+			}
+		});
+		child.stderr.on("data", data => 
+			process.stderr.write(colors.red(data.toString()))
+		);
+		child.on("exit", code => code ? reject() : resolve());
+	}).then(() => {
+		if(warningsInOutput && !confirmOrFail("Warnings detected in output. Continue publishing?"))	{
+			return;
+		}
+		nupkgFilePath = findFileByExtension(workingDirectory, ".nupkg");
+		if (!nupkgFilePath) {
+			runner.fail(".nupkg file not found after build");
+		}
 	});
-	nupkgFilePath = findFileByExtension(workingDirectory, ".nupkg");
-	if (!nupkgFilePath) {
-		runner.fail(".nupkg file not found after build");
-	}
 }
 
 function CleanupNupkgFile() {
