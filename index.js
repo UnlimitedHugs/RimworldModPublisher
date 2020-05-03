@@ -152,6 +152,7 @@ cmd.option("-g, --github", "publishes a release of the mod on GitHub");
 cmd.option("-s, --steam", "publishes an update of the mod on the Steam workshop. Workshop item must already exist.");
 cmd.option("-n, --nuget", "pushes an updated nupkg to nuget.org");
 cmd.option("-x, --skipPreChecks", "skips initial checks that ensure the git repo is committed and up to date with its remote");
+cmd.option("-m, --messageCommit <revision>", "uses the message of a specific commit, instead of the latest. E.g. HEAD~1");
 cmd.option("--preRelease", "marks the release as \"pre-release\" on GitHub");
 cmd.parse(process.argv);
 if (cmd.incrementVersion === true) {
@@ -312,7 +313,8 @@ function CleanupPackagedRelease() {
 var commitMessage;
 
 function FetchCommitMessage() {
-	var stdout = child_process.execSync("git log -1 --pretty=%B");
+	var revision = cmd.messageCommit || "";
+	var stdout = child_process.execSync(`git log ${revision} -1 --pretty=%B`);
 	commitMessage = stdout.toString().trim();
 }
 
