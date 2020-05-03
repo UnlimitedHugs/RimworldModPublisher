@@ -368,7 +368,7 @@ function MakeGithubRelease() {
 	}
 	return Promise.promisify(github.repos.createRelease)(payload).then(result => {
 		uploadUrl = result.data.upload_url;
-		console.log("Created release: " + result.data.html_url);
+		console.log("Created release:\n" + colors.brightCyan(result.data.html_url));
 	});
 }
 
