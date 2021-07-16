@@ -97,7 +97,7 @@ function readTokenFile(path) {
 	try {
 		var contents = fs.readFileSync(path).toString();
 	} catch (err) {
-		console.log(("Failed to read token file at " + path).stylize("red"));
+		console.log(colors.red("Failed to read token file at " + path));
 		throw err;
 	}
 	return contents.trim();
